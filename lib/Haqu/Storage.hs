@@ -22,7 +22,9 @@ createPlayerQuiz :: String -> String -> IO()
 createPlayerQuiz player pid = do
     exists <- doesFileExist file
     if exists 
-    then do return () 
+    then do 
+        removeFile file
+        writeFile file ""
     else do
         writeFile file ""
     where file = "data/" ++ pid ++ "/" ++ player ++".txt"

@@ -22,7 +22,7 @@ main = scotty 3000 $ do
   get  "/styles.css" styles
   get  "/" homeAction
   get "/quiz/:quizId/start" getQuiz
-  post "/quiz/:quizId/register" registerPlayer
+  post "/quiz/:quizId/start" registerPlayer
   get "/quiz/:quizId/:questionId" getQuestion
   post "/quiz/:quizId/:questionId" saveAnswer
 
@@ -98,7 +98,7 @@ registerPlayer = do
 createRegisterForm :: String -> Html
 createRegisterForm quizId = ea "FORM" [
   ("method", "post"),
-  ("action","/quiz/"++quizId++"/register")] (e "DIV" 
+  ("action","/quiz/"++quizId++"/start")] (e "DIV" 
     (unlines [ 
       ea "LABEL" [("for","player")] "Please enter your name:",
       ea "INPUT" [("type","text"),("name","player")] ""
