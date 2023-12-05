@@ -15,5 +15,16 @@ table, th, td {
 .wrong {
   background-color: red;
   background: red;
-  ;
+}
+
+form {
+  margin-top: 20px;
+}
+
+label + input[type="text"] {
+  display: block;
+}
+
+input {
+  margin-bottom: 10px;
 }

@@ -64,10 +64,8 @@ getQuestion = do
       let q = U.unwrapMaybe question
       html (LT.pack (createPage [
           e "H1" "haqu solution", 
-          e "H2" (M.text q),
-          e "P" (show q)
+          createQuestionForm q quizId (show questionId)
         ]))
-
 
 registerPlayer :: ActionM ()
 registerPlayer = do
@@ -85,6 +83,34 @@ createRegisterForm quizId = ea "FORM" [
       ea "LABEL" [("for","player")] "Please enter your name:",
       ea "INPUT" [("type","text"),("name","player")] ""
     ]) ++ ea "BUTTON" [("type","submit")] "Start Quiz")
+
+createQuestionForm :: M.QuestionType -> String -> String -> Html
+createQuestionForm (M.TrueFalse t _) quizId questionId = ea "FORM" [
+  ("method", "post"),
+  ("action","/quiz/"++quizId++"/" ++ questionId)] (e "DIV" 
+    (unlines [ 
+      ea "LABEL" [("for","solution")] t,
+      createRadioButton "False" "False",
+      createRadioButton "True" "True"
+    ]) ++ ea "BUTTON" [("type","submit")] "Submit Answer")
+createQuestionForm (M.SingleChoice t os _) quizId questionId = ea "FORM" [
+  ("method", "post"),
+  ("action","/quiz/"++quizId++"/" ++ questionId)] (e "DIV" 
+    (unlines [ 
+      ea "LABEL" [("for","solution")] t,
+      createRadioButtonGroup os 0
+    ]) ++ ea "BUTTON" [("type","submit")] "Submit Answer")
+
+createRadioButtonGroup :: [String] -> Int -> Html
+createRadioButtonGroup [] _ = []
+createRadioButtonGroup (o:os) i = (createRadioButton (show i) o) ++ (createRadioButtonGroup os (i+1))
+
+createRadioButton :: String -> String -> Html
+createRadioButton oid t = e "DIV" 
+    (unlines [ 
+      ea "INPUT" [("type","radio"),("name","option"),("value", oid)] "",
+      ea "LABEL" [("for",oid)] t
+    ])
 
 createPage :: [Html] -> Html
 createPage content = "<!DOCTYPE html>" ++ ea "html" [("lang", "en")] (headerPart ++ bodyPart content)
