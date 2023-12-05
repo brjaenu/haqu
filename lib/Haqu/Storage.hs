@@ -27,7 +27,6 @@ createPlayerQuiz player pid = do
         writeFile file ""
     where file = "data/" ++ pid ++ "/" ++ player ++".txt"
 
-
 readQuestion :: String -> Int -> IO (Maybe M.QuestionType)
 readQuestion quizId questionId = do
     let file = "data/" ++ quizId ++ ".txt"
@@ -36,17 +35,21 @@ readQuestion quizId questionId = do
     then do return Nothing 
     else do
         content <- readFile file
-        putStrLn ("DEBUG: " ++ concat (lines content))
-        putStrLn ("DEBUG: " ++ show (parseQuestions content))
-        let question = if null content then Nothing else Just (parseQuestions content !! questionId)
-        return $! question
+        return $! evaluateQuestion content questionId
+
+evaluateQuestion :: String -> Int -> Maybe M.QuestionType
+evaluateQuestion content questionId 
+    | null content                      = Nothing
+    | length questions <= questionId  = Nothing
+    | otherwise                         = Just (questions !! questionId)
+    where questions = parseQuestions content
 
 parseQuestions :: String -> [M.QuestionType]
-parseQuestions content = map evaluateQuestionType questions
+parseQuestions content = map parseQuestionType questions
     where questions = tail (map T.unpack (T.splitOn (T.pack "TYPE:") (T.pack content)))
 
-evaluateQuestionType :: String -> M.QuestionType
-evaluateQuestionType s = case head ls of
+parseQuestionType :: String -> M.QuestionType
+parseQuestionType s = case head ls of
     "FALSETRUE" -> M.TrueFalse (parseQuestionText ls) (parseQuestionSolution ls)
     "SINGLECHOICE" -> M.SingleChoice (parseQuestionText ls) (parseQuestionOptions ls) (parseQuestionSolution ls)
     _ -> error "Error"

@@ -24,6 +24,7 @@ main = scotty 3000 $ do
   get "/quiz/:quizId/start" getQuiz
   post "/quiz/:quizId/register" registerPlayer
   get "/quiz/:quizId/:questionId" getQuestion
+  post "/quiz/:quizId/:questionId" saveAnswer
 
 
 styles :: ActionM ()
@@ -51,6 +52,7 @@ getQuiz = do
 
 getQuestion :: ActionM ()
 getQuestion = do 
+    playerName <- queryParam "player"
     quizId <- captureParam "quizId"
     questionIdText <- captureParam "questionId"
     let questionId = if all isDigit (LT.unpack questionIdText)
@@ -64,8 +66,23 @@ getQuestion = do
       let q = U.unwrapMaybe question
       html (LT.pack (createPage [
           e "H1" "haqu solution", 
-          createQuestionForm q quizId (show questionId)
+          createQuestionForm q quizId (show questionId) playerName
         ]))
+
+saveAnswer :: ActionM ()
+saveAnswer = do 
+    playerName <- queryParam "player"
+    quizId <- captureParam "quizId"
+    questionIdText <- captureParam "questionId"
+    let questionId = if all isDigit (LT.unpack questionIdText)
+                                 then read (LT.unpack questionIdText)
+                                 else 0 
+    liftIO (putStrLn ("DEBUG: saveAnswer["++show questionId++"] on Quiz["++quizId++"] of player["++playerName++"]"))
+    question <- liftIO (S.readQuestion quizId (questionId+1))
+    liftIO (putStrLn ("DEBUG: saveAnswer["++show question++"]"))
+    if isNothing question
+      then do redirect "/"
+    else do redirect $ LT.pack ("/quiz/" ++ quizId ++"/" ++ show (questionId+1) ++ "?player=" ++ playerName)
 
 registerPlayer :: ActionM ()
 registerPlayer = do
@@ -73,7 +90,7 @@ registerPlayer = do
     playerName <- formParam "player"
     liftIO (S.createPlayerQuiz playerName quizId)
     liftIO (putStrLn ("DEBUG: registerPlayer["++playerName++"] on Quiz["++quizId++"]"))
-    redirect $ LT.pack ("/quiz/"++quizId++"/0")
+    redirect $ LT.pack ("/quiz/"++quizId++"/0?player=" ++ playerName)
 
 createRegisterForm :: String -> Html
 createRegisterForm quizId = ea "FORM" [
@@ -84,26 +101,26 @@ createRegisterForm quizId = ea "FORM" [
       ea "INPUT" [("type","text"),("name","player")] ""
     ]) ++ ea "BUTTON" [("type","submit")] "Start Quiz")
 
-createQuestionForm :: M.QuestionType -> String -> String -> Html
-createQuestionForm (M.TrueFalse t _) quizId questionId = ea "FORM" [
+createQuestionForm :: M.QuestionType -> String -> String -> String -> Html
+createQuestionForm (M.TrueFalse t _) quizId questionId player = ea "FORM" [
   ("method", "post"),
-  ("action","/quiz/"++quizId++"/" ++ questionId)] (e "DIV" 
+  ("action","/quiz/"++quizId++"/" ++ questionId ++ "?player=" ++ player)] (e "DIV" 
     (unlines [ 
-      ea "LABEL" [("for","solution")] t,
+      e "LABEL"  t,
       createRadioButton "False" "False",
       createRadioButton "True" "True"
     ]) ++ ea "BUTTON" [("type","submit")] "Submit Answer")
-createQuestionForm (M.SingleChoice t os _) quizId questionId = ea "FORM" [
+createQuestionForm (M.SingleChoice t os _) quizId questionId player = ea "FORM" [
   ("method", "post"),
-  ("action","/quiz/"++quizId++"/" ++ questionId)] (e "DIV" 
+  ("action","/quiz/"++quizId++"/" ++ questionId ++ "?player=" ++ player)] (e "DIV" 
     (unlines [ 
-      ea "LABEL" [("for","solution")] t,
+      e "LABEL" t,
       createRadioButtonGroup os 0
     ]) ++ ea "BUTTON" [("type","submit")] "Submit Answer")
 
 createRadioButtonGroup :: [String] -> Int -> Html
 createRadioButtonGroup [] _ = []
-createRadioButtonGroup (o:os) i = (createRadioButton (show i) o) ++ (createRadioButtonGroup os (i+1))
+createRadioButtonGroup (o:os) i = createRadioButton (show i) o ++ createRadioButtonGroup os (i+1)
 
 createRadioButton :: String -> String -> Html
 createRadioButton oid t = e "DIV" 
