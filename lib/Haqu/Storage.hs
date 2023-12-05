@@ -3,8 +3,6 @@
 module Haqu.Storage where
 import System.Directory
 import Data.List
-import Data.Maybe (fromMaybe,mapMaybe)
-import Data.Char (isDigit)
 import qualified Data.Text as T
 import qualified Haqu.Models as M
 import qualified Haqu.Utils as U
@@ -21,13 +19,13 @@ readQuiz quizId = do
         return $! quiz
 
 createPlayerQuiz :: String -> String -> IO()
-createPlayerQuiz player id = do
+createPlayerQuiz player pid = do
     exists <- doesFileExist file
     if exists 
     then do return () 
     else do
         writeFile file ""
-    where file = "data/" ++ id ++ "/" ++ player ++".txt"
+    where file = "data/" ++ pid ++ "/" ++ player ++".txt"
 
 
 readQuestion :: String -> Int -> IO (Maybe M.QuestionType)
@@ -40,7 +38,7 @@ readQuestion quizId questionId = do
         content <- readFile file
         putStrLn ("DEBUG: " ++ concat (lines content))
         putStrLn ("DEBUG: " ++ show (parseQuestions content))
-        let question = if null content then Nothing else Just ((parseQuestions content) !! questionId)
+        let question = if null content then Nothing else Just (parseQuestions content !! questionId)
         return $! question
 
 parseQuestions :: String -> [M.QuestionType]
