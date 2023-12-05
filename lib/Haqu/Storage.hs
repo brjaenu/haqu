@@ -37,6 +37,15 @@ readQuestion quizId questionId = do
         content <- readFile file
         return $! evaluateQuestion content questionId
 
+createAnswer :: String -> String -> String -> String -> IO()
+createAnswer quizId questionId playerName value = do
+    exists <- doesFileExist file
+    if not exists 
+    then do return () 
+    else do
+        appendFile file (questionId ++ ":" ++ value ++ "\n")
+    where file = "data/" ++ quizId ++ "/" ++ playerName ++".txt"
+
 evaluateQuestion :: String -> Int -> Maybe M.QuestionType
 evaluateQuestion content questionId 
     | null content                      = Nothing

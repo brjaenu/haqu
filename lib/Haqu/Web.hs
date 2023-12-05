@@ -74,9 +74,12 @@ saveAnswer = do
     playerName <- queryParam "player"
     quizId <- captureParam "quizId"
     questionIdText <- captureParam "questionId"
+    option <- formParam "option"
     let questionId = if all isDigit (LT.unpack questionIdText)
                                  then read (LT.unpack questionIdText)
                                  else 0 
+    
+    liftIO (S.createAnswer quizId (show questionId) playerName option)
     liftIO (putStrLn ("DEBUG: saveAnswer["++show questionId++"] on Quiz["++quizId++"] of player["++playerName++"]"))
     question <- liftIO (S.readQuestion quizId (questionId+1))
     liftIO (putStrLn ("DEBUG: saveAnswer["++show question++"]"))
