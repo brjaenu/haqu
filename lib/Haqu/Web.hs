@@ -38,7 +38,10 @@ getQuestions = do
     quizzes <- liftIO S.readQuizzes
     html (LT.pack (createPage [
         e "H1" "haqu solution", 
-        e "LABEL" ("Amount " ++ show (length quizzes))
+        e "DIV" 
+          (unlines [ 
+            createQuizLinks quizzes
+          ])
       ]))
 
 getQuiz :: ActionM ()
@@ -81,11 +84,8 @@ saveAnswer = do
     let questionId = if all isDigit (LT.unpack questionIdText)
                                  then read (LT.unpack questionIdText)
                                  else 0 
-    
     liftIO (S.createAnswer quizId (show questionId) playerName option)
-    liftIO (putStrLn ("DEBUG: saveAnswer["++show questionId++"] on Quiz["++quizId++"] of player["++playerName++"]"))
     question <- liftIO (S.readQuestion quizId (questionId+1))
-    liftIO (putStrLn ("DEBUG: saveAnswer["++show question++"]"))
     if isNothing question
       then do redirect "/"
     else do redirect $ LT.pack ("/quiz/" ++ quizId ++"/" ++ show (questionId+1) ++ "?player=" ++ playerName)
@@ -95,8 +95,15 @@ registerPlayer = do
     quizId <- captureParam "quizId" :: ActionM String
     playerName <- formParam "player"
     liftIO (S.createPlayerQuiz playerName quizId)
-    liftIO (putStrLn ("DEBUG: registerPlayer["++playerName++"] on Quiz["++quizId++"]"))
     redirect $ LT.pack ("/quiz/"++quizId++"/0?player=" ++ playerName)
+
+createQuizLinks :: [Maybe M.Quiz] -> Html
+createQuizLinks [] = []
+createQuizLinks (q:qs) = link (U.unwrapMaybe q) ++ createQuizLinks qs
+  where link q1 = e "LI" (boldtext q1 ++ M.desc q1 ++ " " ++ ea "A" [("href",startlink q1)] "start") 
+        boldtext q2 = e "B" ("[" ++ M.qid q2 ++ "] " ++ M.name q2 ++ ": " )
+        startlink q3 = "/quiz/" ++ M.qid q3 ++ "/start"
+
 
 createRegisterForm :: String -> Html
 createRegisterForm quizId = ea "FORM" [

@@ -10,7 +10,7 @@ data QuestionType = TrueFalse {text::QuestionText, solution::String}
                   | SingleChoice {text::QuestionText, options::Options, correctOption::String}
                   deriving Show
 
-data Quiz = MkQuiz {name::String, desc::String, questions::[QuestionType]} deriving Show
+data Quiz = MkQuiz {qid::String, name::String, desc::String, questions::[QuestionType]} deriving Show
 
 data Answer = TrueFalseAnswer Int Bool
             | SingleChoiceAnser Int Int

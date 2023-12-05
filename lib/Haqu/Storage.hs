@@ -23,7 +23,7 @@ readQuiz quizId = do
     then do return Nothing 
     else do
         content <- readFile file
-        let quiz = if null content then Nothing else Just (parseContentToQuiz (lines content))
+        let quiz = if null content then Nothing else Just (parseContentToQuiz quizId (lines content))
         return $! quiz
 
 createPlayerQuiz :: String -> String -> IO()
@@ -86,8 +86,8 @@ parseQuestionOptions :: [String] -> [String]
 parseQuestionOptions ls = map (\l -> intercalate ":" (tail (U.split ':' l))) options
     where options = filter (isPrefixOf "A:") ls
 
-parseContentToQuiz :: [String] -> M.Quiz
-parseContentToQuiz ls = M.MkQuiz (extractQuizName ls) (extractQuizDesc ls) []
+parseContentToQuiz :: String -> [String] -> M.Quiz
+parseContentToQuiz quizId ls = M.MkQuiz quizId (extractQuizName ls) (extractQuizDesc ls) []
 
 extractQuizName :: [String] -> String
 extractQuizName ls = extractQuizAttribute (head ls)
