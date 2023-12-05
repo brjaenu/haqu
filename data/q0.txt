@@ -1,0 +1,15 @@
+NAME:Tiere Quiz
+DESC:Ein Quiz über Tiere
+
+
+
+
+TYPE:SINGLECHOICE
+Q:Wenn Bieber programmieren würden, würden sie folgende Sprache wählen:
+A:Python
+A:Haskell
+S:1
+
+TYPE:FALSETRUE
+Q:Zebras sind blau-gold gestreift.
+S:False

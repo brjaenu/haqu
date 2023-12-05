@@ -1,0 +1,14 @@
+NAME:PL Quiz
+DESC:Ein Quiz über Programmiersprachen
+
+TYPE:SINGLECHOICE
+Q:Welches ist die beste Sprache?
+A:C
+A:Python
+A:Javascript
+A:Haskell
+S:3
+
+TYPE:FALSETRUE
+Q:Programmieren macht in allen Sprachen spass.
+S:True

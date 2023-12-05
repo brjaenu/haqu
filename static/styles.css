@@ -1,0 +1,19 @@
+body {
+  font-family: 'Roboto', sans-serif;
+}
+
+table, th, td {
+  border: 1px solid;
+  border-collapse: collapse;
+}
+
+.correct {
+  background-color: greenyellow;
+  background: greenyellow;
+}
+
+.wrong {
+  background-color: red;
+  background: red;
+  ;
+}

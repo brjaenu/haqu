@@ -1,0 +1,17 @@
+NAME:Haskell Quiz
+DESC:Ein Quiz mit spannenden Haskell Fragen
+
+TYPE:SINGLECHOICE
+Q:Was ist der Typ von isDigit?
+A:Char
+A:Bool -> Char
+A:Char -> Bool
+A:Bool
+S:2
+
+TYPE:FALSETRUE
+Q:Haskell Listen können unendlich lang sein!
+S:True
+TYPE:FALSETRUE
+Q:Macht das Spass?
+S:True

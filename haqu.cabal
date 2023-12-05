@@ -1,0 +1,43 @@
+cabal-version:       3.0
+name:                haqu
+version:             0.1.0.0
+author:              Daniel Krooeni
+maintainer:          daniel.kroeni@fhnw.ch
+build-type:          Simple
+
+common common-properties
+  default-language: Haskell2010
+  build-depends:
+    base >=4.13 && <5
+   ,scotty ==0.20.1
+   ,wai-extra
+   ,directory
+   ,transformers
+   ,text
+   ,bytestring
+   ,random
+  ghc-options:
+    -Wall
+
+library
+  import:              common-properties
+  exposed-modules:     Haqu.Web,Haqu.Storage,Haqu.Models,Haqu.Utils
+  build-depends:       
+  hs-source-dirs:      lib
+
+
+executable haqu
+  import:              common-properties
+  main-is:             Main.hs
+  build-depends:       haqu
+  hs-source-dirs:      app
+  ghc-options: -threaded -rtsopts
+
+test-suite test
+  import:              common-properties
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             HaquTest.hs
+  build-depends:       tasty >= 1.3
+                     , tasty-hunit 
+                     , haqu 
