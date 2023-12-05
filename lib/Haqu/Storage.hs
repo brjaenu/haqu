@@ -7,6 +7,14 @@ import qualified Data.Text as T
 import qualified Haqu.Models as M
 import qualified Haqu.Utils as U
 
+readQuizzes :: IO [Maybe M.Quiz]
+readQuizzes = do
+    let path = "data/"
+    entries <- listDirectory path 
+    let files = map U.removeExtension (filter (isSuffixOf ".txt") entries)
+    quizzes <- sequence $ map readQuiz files
+    return $! quizzes
+
 readQuiz :: String -> IO (Maybe M.Quiz)
 readQuiz quizId = do
     let file = "data/" ++ quizId ++ ".txt"

@@ -20,7 +20,7 @@ main = scotty 3000 $ do
   middleware logStdoutDev
 
   get  "/styles.css" styles
-  get  "/" homeAction
+  get  "/" getQuestions
   get "/quiz/:quizId/start" getQuiz
   post "/quiz/:quizId/start" registerPlayer
   get "/quiz/:quizId/:questionId" getQuestion
@@ -33,10 +33,13 @@ styles = do
     file "static/styles.css"
 
 
-homeAction :: ActionM ()
-homeAction = do
-    liftIO (putStrLn "DEBUG: Home Action Called")
-    htmlString $ e "H1" "haqu solution"
+getQuestions :: ActionM ()
+getQuestions = do
+    quizzes <- liftIO S.readQuizzes
+    html (LT.pack (createPage [
+        e "H1" "haqu solution", 
+        e "LABEL" ("Amount " ++ show (length quizzes))
+      ]))
 
 getQuiz :: ActionM ()
 getQuiz = do
