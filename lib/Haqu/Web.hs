@@ -12,29 +12,34 @@ import qualified Haqu.Storage as S
 import qualified Haqu.Models as M
 import qualified Haqu.Utils as U
 
+-- Type HTML deklaration 
+-- Im Endeffekt ein normaler String
 type Html = String 
 
-
+-- Main Funktion
+-- Lässt den Scotty Webserver auf Port 3000 laufen
+-- Definiert diverse Mappings für Haqu
 main :: IO ()
 main = scotty 3000 $ do
   middleware logStdoutDev
 
   get  "/styles.css" styles
-  get  "/" getQuestions
+  get  "/" getQuizzes
   get "/quiz/:quizId/start" getQuiz
   post "/quiz/:quizId/start" registerPlayer
   get "/quiz/:quizId/:questionId" getQuestion
   post "/quiz/:quizId/:questionId" saveAnswer
 
-
+-- Statisches styles.css welches auf jeder Seite verwendet wird
 styles :: ActionM ()
 styles = do
     setHeader "Content-Type" "text/css"
     file "static/styles.css"
 
-
-getQuestions :: ActionM ()
-getQuestions = do
+-- URL: /
+-- Liest alle Quizzes welche unter /data vorhanden sind und formatiert diese als HTML
+getQuizzes :: ActionM ()
+getQuizzes = do
     quizzes <- liftIO S.readQuizzes
     html (LT.pack (createPage [
         e "H1" "haqu solution", 
@@ -44,6 +49,8 @@ getQuestions = do
           ])
       ]))
 
+-- URL: /quiz/:quizId/start
+-- Lädt ein Quiz mit der über die URL angegbene quizId und formatiert diese als HTML
 getQuiz :: ActionM ()
 getQuiz = do
     quizId <- captureParam "quizId"
@@ -56,6 +63,9 @@ getQuiz = do
         createRegisterForm quizId
       ]))
 
+-- URL: /quiz/:quizId/:questionId
+-- Lädt eine Question mit der über die URL angegbene quizId und questionId und formatiert diese als HTML
+-- Zudem wird der PlayerName über die QueryParams ausgelesen damit die URL auf der Form angegeben werden kann
 getQuestion :: ActionM ()
 getQuestion = do 
     playerName <- queryParam "player"
@@ -94,7 +104,7 @@ registerPlayer :: ActionM ()
 registerPlayer = do
     quizId <- captureParam "quizId" :: ActionM String
     playerName <- formParam "player"
-    liftIO (S.createPlayerQuiz playerName quizId)
+    liftIO (S.createQuizPlayer playerName quizId)
     redirect $ LT.pack ("/quiz/"++quizId++"/0?player=" ++ playerName)
 
 createQuizLinks :: [Maybe M.Quiz] -> Html
@@ -103,7 +113,6 @@ createQuizLinks (q:qs) = link (U.unwrapMaybe q) ++ createQuizLinks qs
   where link q1 = e "LI" (boldtext q1 ++ M.desc q1 ++ " " ++ ea "A" [("href",startlink q1)] "start") 
         boldtext q2 = e "B" ("[" ++ M.qid q2 ++ "] " ++ M.name q2 ++ ": " )
         startlink q3 = "/quiz/" ++ M.qid q3 ++ "/start"
-
 
 createRegisterForm :: String -> Html
 createRegisterForm quizId = ea "FORM" [
@@ -159,11 +168,16 @@ bodyPart content = e "body" (unlines content)
 htmlString :: String -> ActionM ()
 htmlString = html . LT.pack
 
--- Html DSL
+-- Erstellt einen HTML-Tag ohne Attribute
+-- Der TagTyp wird über den Parameter definiert
+-- Der zweite Parameter definiert die Kinder Tags
 e :: String -> Html -> Html
 e tag = ea tag []
 
-
+-- Erstellt einen HTML-Tag mit Attribute
+-- Der TagTyp wird über den ersten Parameter definiert
+-- Die HTML-Attribute werden über den zweiten Parameter definiert
+-- Der dritte Parameter definiert die Kinder Tags
 ea :: String -> [(String, String)] -> Html -> Html
 ea tag attrs kids = concat $ ["<", tag] ++ attrsHtml attrs ++ [">", kids, "</", tag, ">"]
   where attrsHtml [] = []
