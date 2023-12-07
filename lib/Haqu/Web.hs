@@ -190,16 +190,18 @@ createTableRows _ [] = []
 createTableRows quiz ((playerName, answers) : as) = e "TR"
     (unlines [
       e "TD" playerName,
-      createTableRow quiz answers (length (M.questions quiz)-1)
+      createColumns quiz answers (length (M.questions quiz)-1)
     ]) ++ createTableRows quiz as
 
-createTableRow :: M.Quiz -> [M.Answer] -> Int -> Html
-createTableRow _ _ (-1)         = []
-createTableRow _ [] _           = []
-createTableRow quiz (a:as) qInd = createTableRow quiz as (qInd-1) ++ if isSolution
-    then ea "TD" [("class", "correct")] (M.value a)
-    else ea "TD" [("class", "wrong")] (M.value a)
-  where isSolution              = M.value a == M.solution (M.questions quiz !! (length (M.questions quiz) - qInd -1))
+createColumns :: M.Quiz -> [M.Answer] -> Int -> Html
+createColumns _ _ (-1)         = []
+createColumns _ [] _           = []
+createColumns quiz (a:as) qInd = column ++ createColumns quiz as (qInd-1)
+  where isSolution              = M.value a == M.solution (M.questions quiz !! invQuestionInd)
+        invQuestionInd             = length (M.questions quiz) -1 - qInd
+        column                  = if isSolution
+                                    then ea "TD" [("class", "correct")] (M.value a)
+                                    else ea "TD" [("class", "wrong")] (M.value a)
 
 createTableHeadElements :: Int -> Html
 createTableHeadElements 0 = ""
