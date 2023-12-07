@@ -45,7 +45,7 @@ getQuizzes :: ActionM ()
 getQuizzes = do
     quizzes <- liftIO S.readQuizzes
     html (LT.pack (createPage [
-        e "H1" "haqu solution",
+        e "H1" "HaQu",
         e "DIV"
           (unlines [
             createQuizLinks quizzes
@@ -57,18 +57,19 @@ getQuizzes = do
 getQuiz :: ActionM ()
 getQuiz = do
     quizId <- captureParam "quizId"
-    liftIO (putStrLn ("DEBUG: getQuiz Action Called with param: "++ quizId))
     quiz <- liftIO (S.readQuiz quizId)
     let qName = maybe "Quiz does not exist" M.name quiz
     html (LT.pack (createPage [
-        e "H1" "haqu solution",
+        e "H1" "HaQu",
         e "H2" ("Starting " ++ qName),
         createRegisterForm quizId
       ]))
 
+-- URL: /quiz/:quizId/result
+-- Lädt eine Statistik-Tabelle mit den Antworten pro Person
+-- Zudem wird angezeigt, ob die Antworten korrekt (grün) oder falsch (rot) sind
 getResult :: ActionM ()
 getResult = do
-    liftIO (putStrLn ("DEBUG: getResult Action Called with param: "++ "quizId"))
     quizId <- captureParam "quizId"
     quiz <- liftIO (S.readQuiz quizId)
     answersByPlayer <- liftIO (S.readAnswersByQuizId quizId)
@@ -77,9 +78,9 @@ getResult = do
     liftIO (print answersByPlayer)
     liftIO (print quiz)
     html (LT.pack (createPage [
-        e "H1" "haqu solution",
+        e "H1" "HaQu",
         e "H2" ("Results: " ++ qName),
-        e "SPAN" qDesc,
+        e "P" qDesc,
         createStatisticTable (U.unwrapMaybe quiz) answersByPlayer
       ]))
 
@@ -92,16 +93,15 @@ getQuestion = do
     quizId <- captureParam "quizId"
     questionIdText <- captureParam "questionId"
     let questionId = if all isDigit (LT.unpack questionIdText)
-                                 then read (LT.unpack questionIdText)
-                                 else 0
-    liftIO (putStrLn ("DEBUG: getQuestion["++show questionId++"] on Quiz["++quizId++"]"))
+                      then read (LT.unpack questionIdText)
+                      else 0
     question <- liftIO (S.readQuestion quizId questionId)
-    if isNothing question
-      then do redirect "/"
+    if isNothing question 
+    then do redirect "/"
     else do
       let q = U.unwrapMaybe question
       html (LT.pack (createPage [
-          e "H1" "haqu solution",
+          e "H1" "HaQu",
           createQuestionForm q quizId (show questionId) playerName
         ]))
 
@@ -112,12 +112,12 @@ saveAnswer = do
     questionIdText <- captureParam "questionId"
     option <- formParam "option"
     let questionId = if all isDigit (LT.unpack questionIdText)
-                                 then read (LT.unpack questionIdText)
-                                 else 0
+                      then read (LT.unpack questionIdText)
+                      else 0
     liftIO (S.createAnswer quizId (show questionId) playerName option)
     question <- liftIO (S.readQuestion quizId (questionId+1))
     if isNothing question
-      then do redirect $ LT.pack ("/quiz/" ++ quizId ++"/result")
+    then do redirect $ LT.pack ("/quiz/" ++ quizId ++"/result")
     else do redirect $ LT.pack ("/quiz/" ++ quizId ++"/" ++ show (questionId+1) ++ "?player=" ++ playerName)
 
 registerPlayer :: ActionM ()
@@ -144,21 +144,15 @@ createRegisterForm quizId = ea "FORM" [
     ]) ++ ea "BUTTON" [("type","submit")] "Start Quiz")
 
 createQuestionForm :: M.QuestionType -> String -> String -> String -> Html
-createQuestionForm (M.TrueFalse t _) quizId questionId player = ea "FORM" [
-  ("method", "post"),
-  ("action","/quiz/"++quizId++"/" ++ questionId ++ "?player=" ++ player)] (e "DIV"
-    (unlines [
-      e "LABEL"  t,
-      createRadioButton "False" "False",
-      createRadioButton "True" "True"
-    ]) ++ ea "BUTTON" [("type","submit")] "Submit Answer")
-createQuestionForm (M.SingleChoice t os _) quizId questionId player = ea "FORM" [
-  ("method", "post"),
-  ("action","/quiz/"++quizId++"/" ++ questionId ++ "?player=" ++ player)] (e "DIV"
-    (unlines [
-      e "LABEL" t,
-      createRadioButtonGroup os 0
-    ]) ++ ea "BUTTON" [("type","submit")] "Submit Answer")
+createQuestionForm qt quizId questionId player = ea "FORM" attrs (questionContent ++ submitButton)
+  where
+    attrs           = [("method", "post"), ("action", url)]
+    url             = "/quiz/" ++ quizId ++ "/" ++ questionId ++ "?player=" ++ player
+    questionContent = case qt of
+      M.TrueFalse t _       -> e "DIV" (unlines [e "LABEL" t, trueFalseRadios])
+      M.SingleChoice t os _ -> e "DIV" (unlines [e "LABEL" t, createRadioButtonGroup os 0])
+    trueFalseRadios = unlines [createRadioButton "False" "False", createRadioButton "True" "True"]
+    submitButton    = ea "BUTTON" [("type", "submit")] "Submit Answer"
 
 createRadioButtonGroup :: [String] -> Int -> Html
 createRadioButtonGroup [] _ = []
@@ -175,7 +169,8 @@ createStatisticTable :: M.Quiz -> [(String, [M.Answer])] -> Html
 createStatisticTable quiz answers = e "TABLE"
     (unlines [
       createTableHeader quiz,
-      createTableRows quiz answers
+      createTableRows quiz answers,
+      createSummaryRow quiz answers
     ])
 
 createTableHeader :: M.Quiz -> Html
@@ -186,7 +181,7 @@ createTableHeader quiz = e "TR"
     ])
 
 createTableRows :: M.Quiz -> [(String, [M.Answer])] -> Html
-createTableRows _ [] = []
+createTableRows _ []                              = []
 createTableRows quiz ((playerName, answers) : as) = e "TR"
     (unlines [
       e "TD" playerName,
@@ -197,20 +192,44 @@ createColumns :: M.Quiz -> [M.Answer] -> Int -> Html
 createColumns _ _ (-1)         = []
 createColumns _ [] _           = []
 createColumns quiz (a:as) qInd = column ++ createColumns quiz as (qInd-1)
-  where isSolution              = M.value a == M.solution (M.questions quiz !! invQuestionInd)
-        invQuestionInd             = length (M.questions quiz) -1 - qInd
-        column                  = if isSolution
+  where isSolution             = M.value a == M.solution (M.questions quiz !! invQuestionInd)
+        invQuestionInd         = length (M.questions quiz) -1 - qInd
+        column                 = if isSolution
                                     then ea "TD" [("class", "correct")] (M.value a)
                                     else ea "TD" [("class", "wrong")] (M.value a)
 
 createTableHeadElements :: Int -> Html
 createTableHeadElements 0 = ""
-createTableHeadElements 1 = e "TH" "Q1"
-createTableHeadElements l = createTableHeadElements (l-1) ++ e "TH" ("Q"++show l)
+createTableHeadElements l = createTableHeadElements (l-1) ++ e "TH" ("Q" ++ show l)
 
+createSummaryRow :: M.Quiz -> [(String, [M.Answer])] -> Html
+createSummaryRow _ []     = []
+createSummaryRow quiz as  = e "TR"
+    (unlines [
+      e "TD" (e "B" "Statistics"),
+      summaryColumns
+    ])
+  where summaryColumns = createSummaryColumns quiz allAnswers questionIndex playerAmount
+        allAnswers     = concatMap snd as
+        questionIndex  = length (M.questions quiz) -1
+        playerAmount   = length as
+
+createSummaryColumns :: M.Quiz -> [M.Answer] -> Int -> Int -> Html
+createSummaryColumns _ [] _ _       = []
+createSummaryColumns _ _ (-1) _     = []
+createSummaryColumns q as invInd am = createSummaryColumns q as (invInd-1) am ++ e "TD" statText
+  where
+    currentSolution       = M.solution (M.questions q !! invInd)
+    amountcorrect         = show (length (filter onlyCorrectAnswers as))
+    statText              = amountcorrect ++" / "++ show am
+    onlyCorrectAnswers a  = M.value a == currentSolution && M.questionid a == show invInd
+
+-- Erstellt das <html>-Tag mit der lang=en
 createPage :: [Html] -> Html
-createPage content = "<!DOCTYPE html>" ++ ea "html" [("lang", "en")] (headerPart ++ bodyPart content)
+createPage content = "<!DOCTYPE html>" ++ ea "html" attrs (headerPart ++ bodyPart content)
+ where attrs = [("lang", "en")]
 
+-- Erstellt einen Header HTML-Tag worin das UTF-8 encoding und das stylesheet gesetzt werden
 headerPart :: Html
 headerPart =
   e "head" $
@@ -219,11 +238,9 @@ headerPart =
       "<link rel='stylesheet' href='/styles.css'>"
     ]
 
+-- Erstellt einen Body HTML-Tag mit den angegbenen Kinder
 bodyPart :: [Html] -> Html
 bodyPart content = e "body" (unlines content)
-
-htmlString :: String -> ActionM ()
-htmlString = html . LT.pack
 
 -- Erstellt einen HTML-Tag ohne Attribute
 -- Der TagTyp wird über den Parameter definiert
