@@ -1,7 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use foldr" #-}
 
 module Haqu.Web where
-import Web.Scotty 
+import Web.Scotty
 import Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import Control.Monad.IO.Class (liftIO)
 import qualified Data.Text.Lazy as LT
@@ -14,7 +16,7 @@ import qualified Haqu.Utils as U
 
 -- Type HTML deklaration 
 -- Im Endeffekt ein normaler String
-type Html = String 
+type Html = String
 
 -- Main Funktion
 -- Lässt den Scotty Webserver auf Port 3000 laufen
@@ -27,6 +29,7 @@ main = scotty 3000 $ do
   get  "/" getQuizzes
   get "/quiz/:quizId/start" getQuiz
   post "/quiz/:quizId/start" registerPlayer
+  get "/quiz/:quizId/result" getResult
   get "/quiz/:quizId/:questionId" getQuestion
   post "/quiz/:quizId/:questionId" saveAnswer
 
@@ -42,9 +45,9 @@ getQuizzes :: ActionM ()
 getQuizzes = do
     quizzes <- liftIO S.readQuizzes
     html (LT.pack (createPage [
-        e "H1" "haqu solution", 
-        e "DIV" 
-          (unlines [ 
+        e "H1" "haqu solution",
+        e "DIV"
+          (unlines [
             createQuizLinks quizzes
           ])
       ]))
@@ -58,22 +61,39 @@ getQuiz = do
     quiz <- liftIO (S.readQuiz quizId)
     let qName = maybe "Quiz does not exist" M.name quiz
     html (LT.pack (createPage [
-        e "H1" "haqu solution", 
+        e "H1" "haqu solution",
         e "H2" ("Starting " ++ qName),
         createRegisterForm quizId
+      ]))
+
+getResult :: ActionM ()
+getResult = do
+    liftIO (putStrLn ("DEBUG: getResult Action Called with param: "++ "quizId"))
+    quizId <- captureParam "quizId"
+    quiz <- liftIO (S.readQuiz quizId)
+    answersByPlayer <- liftIO (S.readAnswersByQuizId quizId)
+    let qName = maybe "Quiz does not exist" M.name quiz
+    let qDesc = maybe "Quiz does not exist" M.desc quiz
+    liftIO (print answersByPlayer)
+    liftIO (print quiz)
+    html (LT.pack (createPage [
+        e "H1" "haqu solution",
+        e "H2" ("Results: " ++ qName),
+        e "SPAN" qDesc,
+        createStatisticTable (U.unwrapMaybe quiz) answersByPlayer
       ]))
 
 -- URL: /quiz/:quizId/:questionId
 -- Lädt eine Question mit der über die URL angegbene quizId und questionId und formatiert diese als HTML
 -- Zudem wird der PlayerName über die QueryParams ausgelesen damit die URL auf der Form angegeben werden kann
 getQuestion :: ActionM ()
-getQuestion = do 
+getQuestion = do
     playerName <- queryParam "player"
     quizId <- captureParam "quizId"
     questionIdText <- captureParam "questionId"
     let questionId = if all isDigit (LT.unpack questionIdText)
                                  then read (LT.unpack questionIdText)
-                                 else 0 
+                                 else 0
     liftIO (putStrLn ("DEBUG: getQuestion["++show questionId++"] on Quiz["++quizId++"]"))
     question <- liftIO (S.readQuestion quizId questionId)
     if isNothing question
@@ -81,23 +101,23 @@ getQuestion = do
     else do
       let q = U.unwrapMaybe question
       html (LT.pack (createPage [
-          e "H1" "haqu solution", 
+          e "H1" "haqu solution",
           createQuestionForm q quizId (show questionId) playerName
         ]))
 
 saveAnswer :: ActionM ()
-saveAnswer = do 
+saveAnswer = do
     playerName <- queryParam "player"
     quizId <- captureParam "quizId"
     questionIdText <- captureParam "questionId"
     option <- formParam "option"
     let questionId = if all isDigit (LT.unpack questionIdText)
                                  then read (LT.unpack questionIdText)
-                                 else 0 
+                                 else 0
     liftIO (S.createAnswer quizId (show questionId) playerName option)
     question <- liftIO (S.readQuestion quizId (questionId+1))
     if isNothing question
-      then do redirect "/"
+      then do redirect $ LT.pack ("/quiz/" ++ quizId ++"/result")
     else do redirect $ LT.pack ("/quiz/" ++ quizId ++"/" ++ show (questionId+1) ++ "?player=" ++ playerName)
 
 registerPlayer :: ActionM ()
@@ -110,15 +130,15 @@ registerPlayer = do
 createQuizLinks :: [Maybe M.Quiz] -> Html
 createQuizLinks [] = []
 createQuizLinks (q:qs) = link (U.unwrapMaybe q) ++ createQuizLinks qs
-  where link q1 = e "LI" (boldtext q1 ++ M.desc q1 ++ " " ++ ea "A" [("href",startlink q1)] "start") 
+  where link q1 = e "LI" (boldtext q1 ++ M.desc q1 ++ " " ++ ea "A" [("href",startlink q1)] "start")
         boldtext q2 = e "B" ("[" ++ M.qid q2 ++ "] " ++ M.name q2 ++ ": " )
         startlink q3 = "/quiz/" ++ M.qid q3 ++ "/start"
 
 createRegisterForm :: String -> Html
 createRegisterForm quizId = ea "FORM" [
   ("method", "post"),
-  ("action","/quiz/"++quizId++"/start")] (e "DIV" 
-    (unlines [ 
+  ("action","/quiz/"++quizId++"/start")] (e "DIV"
+    (unlines [
       ea "LABEL" [("for","player")] "Please enter your name:",
       ea "INPUT" [("type","text"),("name","player")] ""
     ]) ++ ea "BUTTON" [("type","submit")] "Start Quiz")
@@ -126,16 +146,16 @@ createRegisterForm quizId = ea "FORM" [
 createQuestionForm :: M.QuestionType -> String -> String -> String -> Html
 createQuestionForm (M.TrueFalse t _) quizId questionId player = ea "FORM" [
   ("method", "post"),
-  ("action","/quiz/"++quizId++"/" ++ questionId ++ "?player=" ++ player)] (e "DIV" 
-    (unlines [ 
+  ("action","/quiz/"++quizId++"/" ++ questionId ++ "?player=" ++ player)] (e "DIV"
+    (unlines [
       e "LABEL"  t,
       createRadioButton "False" "False",
       createRadioButton "True" "True"
     ]) ++ ea "BUTTON" [("type","submit")] "Submit Answer")
 createQuestionForm (M.SingleChoice t os _) quizId questionId player = ea "FORM" [
   ("method", "post"),
-  ("action","/quiz/"++quizId++"/" ++ questionId ++ "?player=" ++ player)] (e "DIV" 
-    (unlines [ 
+  ("action","/quiz/"++quizId++"/" ++ questionId ++ "?player=" ++ player)] (e "DIV"
+    (unlines [
       e "LABEL" t,
       createRadioButtonGroup os 0
     ]) ++ ea "BUTTON" [("type","submit")] "Submit Answer")
@@ -145,17 +165,52 @@ createRadioButtonGroup [] _ = []
 createRadioButtonGroup (o:os) i = createRadioButton (show i) o ++ createRadioButtonGroup os (i+1)
 
 createRadioButton :: String -> String -> Html
-createRadioButton oid t = e "DIV" 
-    (unlines [ 
+createRadioButton oid t = e "DIV"
+    (unlines [
       ea "INPUT" [("type","radio"),("name","option"),("value", oid)] "",
       ea "LABEL" [("for",oid)] t
     ])
+
+createStatisticTable :: M.Quiz -> [(String, [M.Answer])] -> Html
+createStatisticTable quiz answers = e "TABLE"
+    (unlines [
+      createTableHeader quiz,
+      createTableRows quiz answers
+    ])
+
+createTableHeader :: M.Quiz -> Html
+createTableHeader quiz = e "TR"
+    (unlines [
+      e "TH" "Player",
+      createTableHeadElements (length (M.questions quiz))
+    ])
+
+createTableRows :: M.Quiz -> [(String, [M.Answer])] -> Html
+createTableRows _ [] = []
+createTableRows quiz ((playerName, answers) : as) = e "TR"
+    (unlines [
+      e "TD" playerName,
+      createTableRow quiz answers (length (M.questions quiz)-1)
+    ]) ++ createTableRows quiz as
+
+createTableRow :: M.Quiz -> [M.Answer] -> Int -> Html
+createTableRow _ _ (-1)         = []
+createTableRow _ [] _           = []
+createTableRow quiz (a:as) qInd = createTableRow quiz as (qInd-1) ++ if isSolution
+    then ea "TD" [("class", "correct")] (M.value a)
+    else ea "TD" [("class", "wrong")] (M.value a)
+  where isSolution              = M.value a == M.solution (M.questions quiz !! (length (M.questions quiz) - qInd -1))
+
+createTableHeadElements :: Int -> Html
+createTableHeadElements 0 = ""
+createTableHeadElements 1 = e "TH" "Q1"
+createTableHeadElements l = createTableHeadElements (l-1) ++ e "TH" ("Q"++show l)
 
 createPage :: [Html] -> Html
 createPage content = "<!DOCTYPE html>" ++ ea "html" [("lang", "en")] (headerPart ++ bodyPart content)
 
 headerPart :: Html
-headerPart = 
+headerPart =
   e "head" $
     unlines [
       "<meta charset='utf-8'>",
