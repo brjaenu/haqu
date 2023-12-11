@@ -1,26 +1,27 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use foldr" #-}
 
+-- This module contains all Scotty/web related functions
+-- It also contains all functions to parse the Model data to HTML Text
 module Haqu.Web where
 import Web.Scotty
 import Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import Control.Monad.IO.Class (liftIO)
-import qualified Data.Text.Lazy as LT
 import Data.List (intersperse)
 import Data.Char (isDigit)
 import Data.Maybe (isNothing)
+import qualified Data.Text.Lazy as LT
 import qualified Haqu.Storage as S
 import qualified Haqu.Models as M
 import qualified Haqu.Utils as U
 
--- Type HTML deklaration 
--- Im Endeffekt ein normaler String
+-- Type HTML declaration
+-- Essentially a regular String
 type Html = String
 
--- Main Funktion
--- Lässt den Scotty Webserver auf Port 3000 laufen
--- Definiert diverse Mappings für Haqu
+-- Main Function
+-- Runs the Scotty web server on port 3000
+-- Defines various mappings for Haqu
 main :: IO ()
 main = scotty 3000 $ do
   middleware logStdoutDev
@@ -33,27 +34,27 @@ main = scotty 3000 $ do
   get "/quiz/:quizId/:questionId" getQuestion
   post "/quiz/:quizId/:questionId" saveAnswer
 
--- Statisches styles.css welches auf jeder Seite verwendet wird
+-- Static styles.css used on every page
 styles :: ActionM ()
 styles = do
     setHeader "Content-Type" "text/css"
     file "static/styles.css"
 
 -- URL: /
--- Liest alle Quizzes welche unter /data vorhanden sind und formatiert diese als HTML
+-- Reads all quizzes under /data and formats them as HTML
 getQuizzes :: ActionM ()
 getQuizzes = do
     quizzes <- liftIO S.readQuizzes
     html (LT.pack (createPage [
         e "H1" "HaQu",
-        e "DIV"
+        e "UL"
           (unlines [
             createQuizLinks quizzes
           ])
       ]))
 
 -- URL: /quiz/:quizId/start
--- Lädt ein Quiz mit der über die URL angegbene quizId und formatiert diese als HTML
+-- Loads a quiz with the specified quizId from the URL and formats it as HTML
 getQuiz :: ActionM ()
 getQuiz = do
     quizId <- captureParam "quizId"
@@ -66,8 +67,8 @@ getQuiz = do
       ]))
 
 -- URL: /quiz/:quizId/result
--- Lädt eine Statistik-Tabelle mit den Antworten pro Person
--- Zudem wird angezeigt, ob die Antworten korrekt (grün) oder falsch (rot) sind
+-- Loads a statistics table with answers per person
+-- Also indicates whether the answers are correct (green) or wrong (red)
 getResult :: ActionM ()
 getResult = do
     quizId <- captureParam "quizId"
@@ -83,8 +84,8 @@ getResult = do
       ]))
 
 -- URL: /quiz/:quizId/:questionId
--- Lädt eine Question mit der über die URL angegbene quizId und questionId und formatiert diese als HTML
--- Zudem wird der PlayerName über die QueryParams ausgelesen damit die URL auf der Form angegeben werden kann
+-- Loads a question with the specified quizId and questionId from the URL and formats it as HTML
+-- Also reads the playerName from the query params to construct the URL
 getQuestion :: ActionM ()
 getQuestion = do
     playerName <- queryParam "player"
@@ -103,6 +104,11 @@ getQuestion = do
           createQuestionForm q quizId (show questionId) playerName
         ]))
 
+-- URL: /quiz/:quizId/:questionId?player
+-- Saves an answer from the specified player using query params
+-- Reads the answer as a formParam
+-- Redirects the user either to the next question
+-- or to the /result page if there is no more question
 saveAnswer :: ActionM ()
 saveAnswer = do
     playerName <- queryParam "player"
@@ -116,8 +122,13 @@ saveAnswer = do
     question <- liftIO (S.readQuestion quizId (questionId+1))
     if isNothing question
     then do redirect $ LT.pack ("/quiz/" ++ quizId ++"/result")
-    else do redirect $ LT.pack ("/quiz/" ++ quizId ++"/" ++ show (questionId+1) ++ "?player=" ++ playerName)
+    else do 
+      let resultURL = "/quiz/" ++ quizId ++"/" ++ show (questionId+1) ++ "?player=" ++ playerName
+      redirect $ LT.pack resultURL
 
+-- URL: /quiz/:quizId/start
+-- Saves a player specified in formParams
+-- Redirects the user to the first question of the quiz
 registerPlayer :: ActionM ()
 registerPlayer = do
     quizId <- captureParam "quizId" :: ActionM String
@@ -125,6 +136,8 @@ registerPlayer = do
     liftIO (S.createQuizPlayer playerName quizId)
     redirect $ LT.pack ("/quiz/"++quizId++"/0?player=" ++ playerName)
 
+-- Parses all given quizzes into an HTML <li> where each quiz has the format
+-- [quizId] Title: Description Link.
 createQuizLinks :: [Maybe M.Quiz] -> Html
 createQuizLinks [] = []
 createQuizLinks (q:qs) = link (U.unwrapMaybe q) ++ createQuizLinks qs
@@ -132,6 +145,7 @@ createQuizLinks (q:qs) = link (U.unwrapMaybe q) ++ createQuizLinks qs
         boldtext q2 = e "B" ("[" ++ M.qid q2 ++ "] " ++ M.name q2 ++ ": " )
         startlink q3 = "/quiz/" ++ M.qid q3 ++ "/start"
 
+-- Creates a registration form for the given quizId.
 createRegisterForm :: String -> Html
 createRegisterForm quizId = ea "FORM" [
   ("method", "post"),
@@ -141,6 +155,7 @@ createRegisterForm quizId = ea "FORM" [
       ea "INPUT" [("type","text"),("name","player")] ""
     ]) ++ ea "BUTTON" [("type","submit")] "Start Quiz")
 
+-- Creates a form for a question with the given questionType, quizId, questionId, and player.
 createQuestionForm :: M.QuestionType -> String -> String -> String -> Html
 createQuestionForm qt quizId questionId player = ea "FORM" attrs (questionContent ++ submitButton)
   where
@@ -152,10 +167,12 @@ createQuestionForm qt quizId questionId player = ea "FORM" attrs (questionConten
     trueFalseRadios = unlines [createRadioButton "False" "False", createRadioButton "True" "True"]
     submitButton    = ea "BUTTON" [("type", "submit")] "Submit Answer"
 
+-- Creates a group of radio buttons for the given Options.
 createRadioButtonGroup :: [String] -> Int -> Html
 createRadioButtonGroup [] _ = []
 createRadioButtonGroup (o:os) i = createRadioButton (show i) o ++ createRadioButtonGroup os (i+1)
 
+-- Creates a single radio button with the given id and label.
 createRadioButton :: String -> String -> Html
 createRadioButton oid t = e "DIV"
     (unlines [
@@ -163,6 +180,7 @@ createRadioButton oid t = e "DIV"
       ea "LABEL" [("for",oid)] t
     ])
 
+-- Creates a table containing statistics for the given quiz and player answers.
 createStatisticTable :: M.Quiz -> [(String, [M.Answer])] -> Html
 createStatisticTable quiz answers = e "TABLE"
     (unlines [
@@ -171,6 +189,7 @@ createStatisticTable quiz answers = e "TABLE"
       createSummaryRow quiz answers
     ])
 
+-- Creates the header row for the statistics table.
 createTableHeader :: M.Quiz -> Html
 createTableHeader quiz = e "TR"
     (unlines [
@@ -178,6 +197,12 @@ createTableHeader quiz = e "TR"
       createTableHeadElements (length (M.questions quiz))
     ])
 
+-- Creates elements for the header row of the statistics table.
+createTableHeadElements :: Int -> Html
+createTableHeadElements 0 = ""
+createTableHeadElements l = createTableHeadElements (l-1) ++ e "TH" ("Q" ++ show l)
+
+-- Creates table rows for each player in the statistics table.
 createTableRows :: M.Quiz -> [(String, [M.Answer])] -> Html
 createTableRows _ []                              = []
 createTableRows quiz ((playerName, answers) : as) = e "TR"
@@ -186,6 +211,8 @@ createTableRows quiz ((playerName, answers) : as) = e "TR"
       createColumns quiz answers (length (M.questions quiz)-1)
     ]) ++ createTableRows quiz as
 
+-- Creates columns for each question and player in the statistics table.
+-- For each column the answer will be displayed and colored 
 createColumns :: M.Quiz -> [M.Answer] -> Int -> Html
 createColumns _ _ (-1)         = []
 createColumns _ [] _           = []
@@ -196,10 +223,9 @@ createColumns quiz (a:as) qInd = column ++ createColumns quiz as (qInd-1)
                                     then ea "TD" [("class", "correct")] (M.value a)
                                     else ea "TD" [("class", "wrong")] (M.value a)
 
-createTableHeadElements :: Int -> Html
-createTableHeadElements 0 = ""
-createTableHeadElements l = createTableHeadElements (l-1) ++ e "TH" ("Q" ++ show l)
-
+-- Creates a summary row with overall statistics for the quiz.
+-- If no answers were given a summary row will be displayed 
+-- with only 0/0 columns for each question
 createSummaryRow :: M.Quiz -> [(String, [M.Answer])] -> Html
 createSummaryRow quiz []  = e "TR"
     (unlines [
@@ -216,10 +242,12 @@ createSummaryRow quiz as  = e "TR"
         questionIndex  = length (M.questions quiz) -1
         playerAmount   = length as
 
+-- Creates empty summary columns for the summary row.
 emptySummaryColumns :: Int -> Html
 emptySummaryColumns 0 = []
 emptySummaryColumns n = e "TD" "0 / 0" ++ emptySummaryColumns (n-1)
 
+-- Creates summary columns for all available questions in the given quiz.
 createSummaryColumns :: M.Quiz -> [M.Answer] -> Int -> Int -> Html
 createSummaryColumns _ [] _ _       = []
 createSummaryColumns _ _ (-1) _     = []
@@ -230,12 +258,12 @@ createSummaryColumns q as invInd am = createSummaryColumns q as (invInd-1) am ++
     statText              = amountcorrect ++" / "++ show am
     onlyCorrectAnswers a  = M.value a == currentSolution && M.questionid a == show invInd
 
--- Erstellt das <html>-Tag mit der lang=en
+-- Creates the <html> tag with the lang=en attribute.
 createPage :: [Html] -> Html
 createPage content = "<!DOCTYPE html>" ++ ea "html" attrs (headerPart ++ bodyPart content)
  where attrs = [("lang", "en")]
 
--- Erstellt einen Header HTML-Tag worin das UTF-8 encoding und das stylesheet gesetzt werden
+-- Creates the header HTML tag with UTF-8 encoding and the stylesheet styles.css.
 headerPart :: Html
 headerPart =
   e "head" $
@@ -244,20 +272,20 @@ headerPart =
       "<link rel='stylesheet' href='/styles.css'>"
     ]
 
--- Erstellt einen Body HTML-Tag mit den angegbenen Kinder
+-- Creates the body HTML tag with the specified children.
 bodyPart :: [Html] -> Html
 bodyPart content = e "body" (unlines content)
 
--- Erstellt einen HTML-Tag ohne Attribute
--- Der TagTyp wird über den Parameter definiert
--- Der zweite Parameter definiert die Kinder Tags
+-- Creates an HTML tag without attributes.
+-- The tag type is defined by the parameter.
+-- The second parameter defines the child tags.
 e :: String -> Html -> Html
 e tag = ea tag []
 
--- Erstellt einen HTML-Tag mit Attribute
--- Der TagTyp wird über den ersten Parameter definiert
--- Die HTML-Attribute werden über den zweiten Parameter definiert
--- Der dritte Parameter definiert die Kinder Tags
+-- Creates an HTML tag with attributes.
+-- The tag type is defined by the first parameter.
+-- HTML attributes are defined by the second parameter.
+-- The third parameter defines the child tags.
 ea :: String -> [(String, String)] -> Html -> Html
 ea tag attrs kids = concat $ ["<", tag] ++ attrsHtml attrs ++ [">", kids, "</", tag, ">"]
   where attrsHtml [] = []
