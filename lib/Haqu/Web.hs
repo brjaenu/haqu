@@ -201,7 +201,11 @@ createTableHeadElements 0 = ""
 createTableHeadElements l = createTableHeadElements (l-1) ++ e "TH" ("Q" ++ show l)
 
 createSummaryRow :: M.Quiz -> [(String, [M.Answer])] -> Html
-createSummaryRow _ []     = []
+createSummaryRow quiz []  = e "TR"
+    (unlines [
+      e "TD" (e "B" "Statistics"),
+      emptySummaryColumns (length (M.questions quiz))
+    ])
 createSummaryRow quiz as  = e "TR"
     (unlines [
       e "TD" (e "B" "Statistics"),
@@ -211,6 +215,10 @@ createSummaryRow quiz as  = e "TR"
         allAnswers     = concatMap snd as
         questionIndex  = length (M.questions quiz) -1
         playerAmount   = length as
+
+emptySummaryColumns :: Int -> Html
+emptySummaryColumns 0 = []
+emptySummaryColumns n = e "TD" "0 / 0" ++ emptySummaryColumns (n-1)
 
 createSummaryColumns :: M.Quiz -> [M.Answer] -> Int -> Int -> Html
 createSummaryColumns _ [] _ _       = []
