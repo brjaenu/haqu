@@ -413,7 +413,7 @@ Sie brauchen keine eigenen Styles hinzuzufügen. Wenn Sie das aber trotzdem mach
 # File or Memory
 Bitte kreuzen Sie das entsprechend an um die Korrektur zu vereinfachen:
 
-[] Die Quizzes werden direkt aus den Dateien geladen.  
+[x] Die Quizzes werden direkt aus den Dateien geladen.  
 [] Die Quizzes sind in einer Liste namens ___________ im Modul ________ zu finden.
 
 

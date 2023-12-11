@@ -75,8 +75,6 @@ getResult = do
     answersByPlayer <- liftIO (S.readAnswersByQuizId quizId)
     let qName = maybe "Quiz does not exist" M.name quiz
     let qDesc = maybe "Quiz does not exist" M.desc quiz
-    liftIO (print answersByPlayer)
-    liftIO (print quiz)
     html (LT.pack (createPage [
         e "H1" "HaQu",
         e "H2" ("Results: " ++ qName),
