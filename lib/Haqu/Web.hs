@@ -114,11 +114,11 @@ saveAnswer = do
     playerName <- queryParam "player"
     quizId <- captureParam "quizId"
     questionIdText <- captureParam "questionId"
-    option <- formParam "option"
+    answer <- formParam "answer"
     let questionId = if all isDigit (LT.unpack questionIdText)
                       then read (LT.unpack questionIdText)
                       else 0
-    liftIO (S.createAnswer quizId (show questionId) playerName option)
+    liftIO (S.createAnswer quizId (show questionId) playerName answer)
     question <- liftIO (S.readQuestion quizId (questionId+1))
     if isNothing question
     then do redirect $ LT.pack ("/quiz/" ++ quizId ++"/result")
@@ -141,7 +141,8 @@ registerPlayer = do
 createQuizLinks :: [Maybe M.Quiz] -> Html
 createQuizLinks [] = []
 createQuizLinks (q:qs) = link (U.unwrapMaybe q) ++ createQuizLinks qs
-  where link q1 = e "LI" (boldtext q1 ++ M.desc q1 ++ " " ++ ea "A" [("href",startlink q1)] "start")
+  where link q1 = e "LI" (boldtext q1 ++ M.desc q1 ++ " " ++ aTag q1)
+        aTag q1 = ea "A" [("href",startlink q1)] "start"
         boldtext q2 = e "B" ("[" ++ M.qid q2 ++ "] " ++ M.name q2 ++ ": " )
         startlink q3 = "/quiz/" ++ M.qid q3 ++ "/start"
 
@@ -157,26 +158,29 @@ createRegisterForm quizId = ea "FORM" [
 
 -- Creates a form for a question with the given questionType, quizId, questionId, and player.
 createQuestionForm :: M.QuestionType -> String -> String -> String -> Html
-createQuestionForm qt quizId questionId player = ea "FORM" attrs (questionContent ++ submitButton)
+createQuestionForm qt quizId questionId player = ea "FORM" attrs (questionContent++submitButton)
   where
     attrs           = [("method", "post"), ("action", url)]
     url             = "/quiz/" ++ quizId ++ "/" ++ questionId ++ "?player=" ++ player
     questionContent = case qt of
       M.TrueFalse t _       -> e "DIV" (unlines [e "LABEL" t, trueFalseRadios])
       M.SingleChoice t os _ -> e "DIV" (unlines [e "LABEL" t, createRadioButtonGroup os 0])
-    trueFalseRadios = unlines [createRadioButton "False" "False", createRadioButton "True" "True"]
+    trueFalseRadios = unlines [falseRadio, trueRadio]
+    trueRadio       = createRadioButton "True" "True"
+    falseRadio      = createRadioButton "False" "False"
     submitButton    = ea "BUTTON" [("type", "submit")] "Submit Answer"
 
 -- Creates a group of radio buttons for the given Options.
 createRadioButtonGroup :: [String] -> Int -> Html
 createRadioButtonGroup [] _ = []
-createRadioButtonGroup (o:os) i = createRadioButton (show i) o ++ createRadioButtonGroup os (i+1)
+createRadioButtonGroup (o:os) i = radio ++ createRadioButtonGroup os (i+1)
+  where radio = createRadioButton (show i) o
 
 -- Creates a single radio button with the given id and label.
 createRadioButton :: String -> String -> Html
 createRadioButton oid t = e "DIV"
     (unlines [
-      ea "INPUT" [("type","radio"),("name","option"),("value", oid)] "",
+      ea "INPUT" [("type","radio"),("name","answer"),("value", oid)] "",
       ea "LABEL" [("for",oid)] t
     ])
 
@@ -251,11 +255,11 @@ emptySummaryColumns n = e "TD" "0 / 0" ++ emptySummaryColumns (n-1)
 createSummaryColumns :: M.Quiz -> [M.Answer] -> Int -> Int -> Html
 createSummaryColumns _ [] _ _       = []
 createSummaryColumns _ _ (-1) _     = []
-createSummaryColumns q as invInd am = createSummaryColumns q as (invInd-1) am ++ e "TD" statText
+createSummaryColumns q as invInd am = createSummaryColumns q as (invInd-1) am ++ e "TD" stats
   where
     currentSolution       = M.solution (M.questions q !! invInd)
     amountcorrect         = show (length (filter onlyCorrectAnswers as))
-    statText              = amountcorrect ++" / "++ show am
+    stats              = amountcorrect ++" / "++ show am
     onlyCorrectAnswers a  = M.value a == currentSolution && M.questionid a == show invInd
 
 -- Creates the <html> tag with the lang=en attribute.

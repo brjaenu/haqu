@@ -17,7 +17,12 @@ data QuestionType = TrueFalse {text::QuestionText, solution::String}
                   deriving Show
 
 -- The Quiz contains a quizId, name and a description. Beside that it also contains a List of questions related to this quiz
-data Quiz = MkQuiz {qid::String, name::String, desc::String, questions::[QuestionType]} deriving Show
+data Quiz = MkQuiz {
+    qid::String, 
+    name::String, 
+    desc::String, 
+    questions::[QuestionType]
+} deriving Show
 
 -- An answer contains a questionIndex and the selected Value
 data Answer = MkAnswer{questionid:: String, value:: String} deriving Show

@@ -53,13 +53,21 @@ readQuestion quizId questionId = do
 createQuizPlayer :: String -> String -> IO()
 createQuizPlayer playerName pid = do
     exists <- doesFileExist file
+    existsFolder <- doesDirectoryExist folder
     if exists
     then do
         removeFile file
         writeFile file ""
     else do
-        writeFile file ""
-    where file = "data/" ++ pid ++ "/" ++ playerName ++".txt"
+        if not existsFolder 
+            then do 
+                createDirectory folder
+                writeFile file ""
+            else do 
+                writeFile file ""
+    where 
+        file = folder ++ "/" ++ playerName ++".txt"
+        folder = "data/" ++ pid
 
 -- Creates an answer with the given quizId, questionId, playerName, and value
 -- The value is appended to the corresponding file
@@ -76,10 +84,13 @@ createAnswer quizId questionId playerName value = do
 readAnswersByQuizId :: String -> IO [(String, [M.Answer])]
 readAnswersByQuizId quizId = do
     let path = "data/" ++ quizId
-    entries <- listDirectory path
-    let files = map U.removeExtension (filter (isSuffixOf ".txt") entries)
-    answers <- mapM (\p -> fmap (\a -> (p, a)) (readAnswersByPlayer quizId p)) files
-    return $! answers
+    exists <- doesDirectoryExist path
+    if not exists then do return []
+    else do
+        entries <- listDirectory path
+        let files = map U.removeExtension (filter (isSuffixOf ".txt") entries)
+        answers <- mapM (\p -> fmap (\a -> (p, a)) (readAnswersByPlayer quizId p)) files
+        return $! answers
 
 -- Retrieves answers for a specific player in a quiz
 readAnswersByPlayer :: String -> String -> IO [M.Answer]
